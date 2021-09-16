@@ -19,7 +19,17 @@ contract RaffleWorld is Ownable {
         uint256 _ticketPrice,
         uint256 _lockDays,
         string _status,
-        bool canceled
+        bool _canceled
+    );
+
+    event ActivateRaffle(
+        address indexed user,
+        uint256 indexed _raffleId
+    );
+
+    event CancelRaffle(
+        address indexed user,
+        uint256 indexed _raffleId
     );
 
     /*
@@ -105,14 +115,14 @@ contract RaffleWorld is Ownable {
                 ticketPrice: _ticketPrice,
                 lockDays: _lockDays,
                 status: "ongoing",
-                canceled: false,
+                //pushing the raffle as canceled so activateRaffle function will not revert
+                canceled: true,
                 totalPercentage: 0
             })
         );
         
         //activating the last raffle in the array
-        active_raffles.push(raffles.length - 1);
-        active_raffles_index[raffles.length - 1] = active_raffles.length - 1;
+        activateRaffle(raffles.length - 1);
 
         emit SetRaffle(
             _msgSender(),
@@ -126,5 +136,38 @@ contract RaffleWorld is Ownable {
             "ongoing",
             false
         );
+    }
+
+    function activateRaffle(uint256 _raffleId) public onlyOwner {
+        require(raffles[_raffleId].canceled == true, "RaffleWorld: raffle is already active!");
+        raffles[_raffleId].canceled = false;
+        active_raffles.push(raffles.length - 1);
+        active_raffles_index[raffles.length - 1] = active_raffles.length - 1;
+        emit ActivateRaffle(_msgSender(), _raffleId);
+    }
+
+    function cancelRaffle(uint256 _raffleId) public onlyOwner {
+        require(active_raffles_index[_raffleId] != uint256(-1), "Raffle World: raffle is already canceled!");
+
+        raffles[_raffleId].canceled = true;
+
+        //index from active_raffles of the raffle pointed by _raffleId
+        uint256 current_raffle_index = active_raffles_index[_raffleId];
+        //index from active raffles of the last raffle from the array
+        uint256 last_active_raffle_index = active_raffles_index[active_raffles[active_raffles.length - 1]];
+
+        //replace the value pointed by the index of the current_raffle (the index of the raffle from the raffles array) with the value pointed
+        //by last_active_raffle_index (the index from raffles of the last raffle from active_raffles array) 
+        active_raffles[current_raffle_index] = active_raffles[last_active_raffle_index];
+
+        //replacing the value pointed by the index of the last active raffle with the value pointed by the index of the current raffle 
+        active_raffles_index[active_raffles[active_raffles.length - 1]] = active_raffles_index[_raffleId];
+        //replacing the value pointed by _raffleId with a position that is not occupied in the active_raffles array
+        active_raffles_index[_raffleId] = uint256(-1); 
+
+        //removing the last raffle from active_raffles array because it has been moved on the current_raffle_index position
+        active_raffles.pop();
+
+        emit CancelRaffle(_msgSender(), _raffleId);
     }
 }
