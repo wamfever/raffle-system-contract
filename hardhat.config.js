@@ -55,7 +55,7 @@ module.exports = {
         timeout: 90000
       }
     },
-    kovan: {
+    rinkeby: {
       url: process.env.ALCHEMY_RINKEBY_TESNET_URL,
       accounts: [ process.env.METAMASK_ACCOUNT_PRIVATE_KEY ]
     } 
