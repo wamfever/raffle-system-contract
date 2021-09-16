@@ -7,10 +7,23 @@ import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "hardhat/console.sol";
 
-contract RaffleWorld {
+contract RaffleWorld is Ownable {
+
+    event SetRaffle(
+        address indexed user,
+        string _name,
+        uint256 _startDate,
+        address _tokenAddress,
+        uint256 _prizeAmount,
+        uint256 _ticketsLimit,
+        uint256 _ticketPrice,
+        uint256 _lockDays,
+        string _status,
+        bool canceled
+    );
 
     /*
-        Raffle structure members:
+        @dev Raffle structure members:
 
             name (string) -> the name of the raffle
 
@@ -50,9 +63,68 @@ contract RaffleWorld {
     Raffle[] public raffles;
 
     /* active raffles array */
-    Raffle[] public active_raffles;
+    uint256[] public active_raffles;
 
     /* mapping from main raffles array index to active raffle index */
     mapping(uint256 => uint256) active_raffles_index;
 
+    function _checkRaffleParameters(uint256 _startDate, uint256 _prizeAmount, uint256 _ticketsLimit) internal view {
+        require(_startDate > block.timestamp, "RaffleWorld: raffle's start date should be in the future!");
+        require(_prizeAmount > 0, "RaffleWorld: raffle's prize amount should be greater than 0!");
+        require(_ticketsLimit > 0, "RaffleWorld: raffle's tickets limit should be greater than 0!");
+    }
+
+    function setRaffle(
+        string memory _name,
+        uint256 _startDate,
+        address _tokenAddress,
+        uint256 _prizeAmount,
+        uint256 _ticketsLimit,
+        uint256 _ticketPrice,
+        uint256 _lockDays
+    ) public onlyOwner {
+
+        _checkRaffleParameters(_startDate, _prizeAmount, _ticketsLimit);
+
+        //check if the owner has allowed enough raffle tokens for the prize pool
+        IERC20 raffleToken = IERC20(_tokenAddress);
+        require(
+            raffleToken.allowance(_msgSender(), address(this)) >= _prizeAmount,
+            "RaffleWorld: Insufficient tokens for prize poll"
+        );
+        raffleToken.transferFrom(_msgSender(), address(this), _prizeAmount);
+
+        //add raffle to the main array 
+        raffles.push(
+            Raffle({
+                name: _name,
+                startDate: _startDate,
+                tokenAddress: _tokenAddress,
+                prizeAmount: _prizeAmount,
+                ticketsLimit: _ticketsLimit,
+                ticketPrice: _ticketPrice,
+                lockDays: _lockDays,
+                status: "ongoing",
+                canceled: false,
+                totalPercentage: 0
+            })
+        );
+        
+        //activating the last raffle in the array
+        active_raffles.push(raffles.length - 1);
+        active_raffles_index[raffles.length - 1] = active_raffles.length - 1;
+
+        emit SetRaffle(
+            _msgSender(),
+            _name,
+            _startDate,
+            _tokenAddress,
+            _prizeAmount,
+            _ticketsLimit,
+            _ticketPrice,
+            _lockDays,
+            "ongoing",
+            false
+        );
+    }
 }
