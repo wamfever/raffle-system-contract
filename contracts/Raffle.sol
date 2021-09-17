@@ -213,7 +213,7 @@ contract RaffleWorld is Ownable, VRFConsumerBase {
     uint256[] public active_raffles;
 
     /* mapping from main raffles array index to active raffle index */
-    mapping(uint256 => uint256) public active_raffles_index;
+    mapping(uint256 => uint256) active_raffles_index;
 
     /* mapping from main raffles array index to an array of percentages wich represents how the prize amount is divided among winners */
     mapping(uint256 => uint256[]) public percentagesToWin;
@@ -225,7 +225,7 @@ contract RaffleWorld is Ownable, VRFConsumerBase {
     mapping(bytes32 => RaffleRandom) randomRequests;
 
     /* mapping from user address to tickets bought by him for a specific raffle id*/
-    mapping(address => mapping(uint256 => uint256[])) userTickets;
+    mapping(address => mapping(uint256 => uint256[])) public userTickets;
 
 
     address public immutable linkTokenContractAddress;
@@ -235,7 +235,6 @@ contract RaffleWorld is Ownable, VRFConsumerBase {
     uint256 public requiredRaffleLink = 0;
 
     bytes32 private keyHash;
-    uint256 public randomResult;
 
     constructor(
         bytes32 _keyHash,
@@ -492,7 +491,6 @@ contract RaffleWorld is Ownable, VRFConsumerBase {
         internal
         override
     {
-        randomResult = randomness;
         randomRequests[requestId].random = randomness;
         _decideRaffle(requestId);
     }
