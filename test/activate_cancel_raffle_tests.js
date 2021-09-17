@@ -4,21 +4,35 @@ const { ethers } = require("hardhat");
 describe("Activate and cancel raffle tests", function () {
 
     let deployerAccount;
+    let secondaryAccount;
     let raffleWorld;
     let testToken;
 
     before(async function () {
-        const [deployer] = await ethers.getSigners();
+        const [deployer, secondary] = await ethers.getSigners();
         deployerAccount = deployer;
+        secondaryAccount = secondary;
     });
 
     beforeEach(async function () {
+        const LinkToken = await ethers.getContractFactory("MockLink");
+        linkToken = await LinkToken.deploy();
+
+        const VRFCoordinatorMock = await ethers.getContractFactory('VRFCoordinatorMock');
+        vrfCoordinatorMock = await VRFCoordinatorMock.deploy(linkToken.address);
+
         const RaffleWorld = await ethers.getContractFactory("RaffleWorld");
-        raffleWorld = await RaffleWorld.deploy();
+        raffleWorld = await RaffleWorld.deploy(
+            "0x2ed0feb3e7fd2022120aa84fab1945545a9f2ffc9076fd6156fa96eaff4c1311",
+            vrfCoordinatorMock.address,
+            linkToken.address,
+            "100000000000000000"
+        );
 
         const TestToken = await ethers.getContractFactory("TestToken");
         testToken = await TestToken.deploy("Test Token", "TKN1");
 
+        await linkToken.approve(raffleWorld.address, "100000000000000000");
     });
 
     it("Should cancel the raffle", async function () {

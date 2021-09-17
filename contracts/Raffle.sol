@@ -8,9 +8,11 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "hardhat/console.sol";
 
-contract RaffleWorld is Ownable {
+//chainlink
+import "@chainlink/contracts/src/v0.6/VRFConsumerBase.sol";
 
-    using SafeMath for uint;
+
+contract RaffleWorld is Ownable, VRFConsumerBase {
 
     event SetRaffle(
         address indexed user,
@@ -83,6 +85,11 @@ contract RaffleWorld is Ownable {
         string _status
     );
 
+    event SetRequiredRaffleLink(
+        address indexed user,
+        uint256 _requireRaffleLink
+    );
+
     event AddPercentage(
         address indexed user,
         uint256 indexed _raffleId,
@@ -106,6 +113,14 @@ contract RaffleWorld is Ownable {
         address indexed user,
         uint256 indexed _raffleId,
         uint256 _ticketsNumber
+    );
+
+    event RequestedRandomness(bytes32 requestId);
+
+    event RaffleWinner(
+        address indexed user,
+        uint256 indexed _raffleId,
+        uint256 _amount
     );
 
     modifier beforeRaffleStart(uint256 _raffleId) {
@@ -180,6 +195,11 @@ contract RaffleWorld is Ownable {
         address owner;
     }
 
+    struct RaffleRandom {
+        uint256 raffleId;
+        uint256 random;
+    }
+
     /* main raffles array */
     Raffle[] public raffles;
 
@@ -187,16 +207,45 @@ contract RaffleWorld is Ownable {
     uint256[] public active_raffles;
 
     /* mapping from main raffles array index to active raffle index */
-    mapping(uint256 => uint256) active_raffles_index;
+    mapping(uint256 => uint256) public active_raffles_index;
 
     /* mapping from main raffles array index to an array of percentages wich represents how the prize amount is divided among winners */
-    mapping(uint256 => uint256[]) percentagesToWin;
+    mapping(uint256 => uint256[]) public percentagesToWin;
 
     /* mapping from raffle id to tickets bought for it */
-    mapping(uint256 => Ticket[]) raffleTickets;
+    mapping(uint256 => Ticket[]) public raffleTickets;
+
+    /* storing raffle id and random number for each requrest */
+    mapping(bytes32 => RaffleRandom) randomRequests;
 
     /* mapping from user address to tickets bought by him for a specific raffle id*/
     mapping(address => mapping(uint256 => uint256[])) userTickets;
+
+
+    address public immutable linkTokenContractAddress;
+    IERC20 private immutable linkToken;
+
+    address private immutable vrfCoordinatorAddress;
+    uint256 public requiredRaffleLink = 0;
+
+    bytes32 private keyHash;
+    uint256 public randomResult;
+
+    constructor(
+        bytes32 _keyHash,
+        address _vrfCoordinatorAddress,
+        address _linkTokenContractAddress,
+        uint256 _requiredRaffleLink
+    )
+        public
+        VRFConsumerBase(_vrfCoordinatorAddress, _linkTokenContractAddress)
+    {
+        keyHash = _keyHash;
+        linkTokenContractAddress = _linkTokenContractAddress;
+        linkToken = IERC20(_linkTokenContractAddress);
+        vrfCoordinatorAddress = _vrfCoordinatorAddress;
+        requiredRaffleLink = _requiredRaffleLink;
+    }
 
     function _checkRaffleParameters(uint256 _startDate, uint256 _prizeAmount, uint256 _ticketsLimit) internal view {
         require(_startDate > block.timestamp, "RaffleWorld: raffle's start date should be in the future!");
@@ -223,6 +272,12 @@ contract RaffleWorld is Ownable {
             "RaffleWorld: Insufficient tokens for prize poll"
         );
         raffleToken.transferFrom(_msgSender(), address(this), _prizeAmount);
+
+        require(
+            linkToken.allowance(_msgSender(), address(this)) >= requiredRaffleLink,
+            "RaffleWorld insufficient tokens for adding a new raffle"
+        );
+        linkToken.transferFrom(_msgSender(), address(this), requiredRaffleLink);
 
         //add raffle to the main array 
         raffles.push(
@@ -378,14 +433,74 @@ contract RaffleWorld is Ownable {
         emit RemovePercentage(_msgSender(), _raffleId, _index);
     }
 
+    function setRequiredRaffleLink(uint256 _requiredRaffleLink) public onlyOwner {
+        requiredRaffleLink = _requiredRaffleLink;
+        emit SetRequiredRaffleLink(_msgSender(), _requiredRaffleLink);
+    }
+
+    function _sendRaffleWinnerMoney(uint256 _raffleId, address _winner,  uint256 _percentagesIndex)
+        internal
+    {
+        IERC20 token = IERC20(raffles[_raffleId].tokenAddress);
+        uint256 amount = percentagesToWin[_raffleId][_percentagesIndex]
+            .mul(raffles[_raffleId].prizeAmount).div(10000);
+        token.transfer(_winner, amount);
+        emit RaffleWinner(_winner, _raffleId, amount);
+    }
+
+    function _decideRaffle(bytes32 _requestId) internal {
+
+        uint256 _raffleId = randomRequests[_requestId].raffleId;
+        uint256 random = randomRequests[_requestId].random;
+        raffles[_raffleId].status = "ended";
+
+        for(uint256 i = 0; i < percentagesToWin[_raffleId].length; i++) {
+            //get index of the winning ticket
+            uint256 index = uint256(keccak256(abi.encode(random, i))).mod(
+                    raffleTickets[_raffleId].length
+            );
+            _sendRaffleWinnerMoney(_raffleId, raffleTickets[_raffleId][index].owner, i);
+        }
+    }
+
+    //request a random number using VRF Coordinator for deciding the raffle
+    function getRandomNumber(uint256 _raffleId)
+        public
+        returns (bytes32 requestId)
+    {
+        requestRandomness(keyHash, requiredRaffleLink);
+
+        //we store the raffle id acccording to request id so we can know for wich raffle 
+        //the request has finished when the callback is called 
+        randomRequests[requestId] = RaffleRandom({
+            raffleId: _raffleId,
+            random: 0
+        });
+        emit RequestedRandomness(requestId);
+    }
+
+    /**
+      @dev Callback function used by VRF Coordinator
+    **/
+    function fulfillRandomness(bytes32 requestId, uint256 randomness)
+        internal
+        override
+    {
+        randomResult = randomness;
+        randomRequests[requestId].random = randomness;
+        _decideRaffle(requestId);
+    }
+
 
     function buyTickets(uint256 _raffleId, uint256 _ticketsNumber) public checkTicketsAcquisition(_raffleId, _ticketsNumber) {
-        
+
         //checks if the user has enough balance
         uint256 ticketsValue = raffles[_raffleId].ticketPrice.mul(_ticketsNumber);
         IERC20 raffleToken = IERC20(raffles[_raffleId].tokenAddress);
+
         require(ticketsValue <= raffleToken.allowance(_msgSender(), address(this)),
             "RaffleWorld: you didn't provide enough tokens for the purchase to be made");
+
         raffleToken.transferFrom(_msgSender(), address(this), ticketsValue);
 
         for(uint256 i = 0; i < _ticketsNumber;  i++) {
@@ -394,6 +509,10 @@ contract RaffleWorld is Ownable {
         }
 
         emit BuyTickets(_msgSender(), _raffleId, _ticketsNumber);
+
+        if(raffleTickets[_raffleId].length == raffles[_raffleId].ticketsLimit) {
+            getRandomNumber(_raffleId);
+        }
     }
 
     function withdrawTickets(uint256 _raffleId, uint256 _ticketsNumber) public {
@@ -428,4 +547,6 @@ contract RaffleWorld is Ownable {
 
         emit WithdrawTickets(_msgSender(), _raffleId, ticketsRefunded);
     }
+
+    
 }

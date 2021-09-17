@@ -4,25 +4,38 @@ const { ethers } = require("hardhat");
 describe("Winning percentages tests", function () {
 
     let deployerAccount;
+    let secondaryAccount;
     let raffleWorld;
     let testToken;
 
     before(async function () {
-        const [deployer] = await ethers.getSigners();
+        const [deployer, secondary] = await ethers.getSigners();
         deployerAccount = deployer;
+        secondaryAccount = secondary;
     });
 
     beforeEach(async function () {
+        const LinkToken = await ethers.getContractFactory("MockLink");
+        linkToken = await LinkToken.deploy();
+
+        const VRFCoordinatorMock = await ethers.getContractFactory('VRFCoordinatorMock');
+        vrfCoordinatorMock = await VRFCoordinatorMock.deploy(linkToken.address);
+
         const RaffleWorld = await ethers.getContractFactory("RaffleWorld");
-        raffleWorld = await RaffleWorld.deploy();
+        raffleWorld = await RaffleWorld.deploy(
+            "0x2ed0feb3e7fd2022120aa84fab1945545a9f2ffc9076fd6156fa96eaff4c1311",
+            vrfCoordinatorMock.address,
+            linkToken.address,
+            "100000000000000000"
+        );
 
         const TestToken = await ethers.getContractFactory("TestToken");
         testToken = await TestToken.deploy("Test Token", "TKN1");
 
+        await linkToken.approve(raffleWorld.address, "100000000000000000");
     });
 
-
-    it("Shoud add a percentage to one of the raffles", async function () {
+    it("Should add a percentage to one of the raffles", async function () {
         await testToken.approve(raffleWorld.address, "1000000000000");
         await expect(raffleWorld.setRaffle("Test raffle", "1663346190", testToken.address, "1000000000000", "10", "1000000000", "2"))
             .to.not.be.reverted;
@@ -30,7 +43,7 @@ describe("Winning percentages tests", function () {
             .to.emit(raffleWorld, "AddPercentage").withArgs(deployerAccount.address, "0", "0", "2000");
     });
 
-    it("Shoud not add a percentage to one of the raffles because it would exceed the maximum percentage", async function () {
+    it("Should not add a percentage to one of the raffles because it would exceed the maximum percentage", async function () {
         await testToken.approve(raffleWorld.address, "1000000000000");
         await expect(raffleWorld.setRaffle("Test raffle", "1663346190", testToken.address, "1000000000000", "10", "1000000000", "2"))
             .to.not.be.reverted;

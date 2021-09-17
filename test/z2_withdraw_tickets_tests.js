@@ -14,28 +14,43 @@ function addMonth(month) {
 describe("Withdraw tickets tests", function () {
 
     let deployerAccount;
+    let secondaryAccount;
     let raffleWorld;
     let testToken;
 
     before(async function () {
-        const [deployer] = await ethers.getSigners();
+        const [deployer, secondary] = await ethers.getSigners();
         deployerAccount = deployer;
+        secondaryAccount = secondary;
     });
 
     beforeEach(async function () {
+        const LinkToken = await ethers.getContractFactory("MockLink");
+        linkToken = await LinkToken.deploy();
+
+        const VRFCoordinatorMock = await ethers.getContractFactory('VRFCoordinatorMock');
+        vrfCoordinatorMock = await VRFCoordinatorMock.deploy(linkToken.address);
+
         const RaffleWorld = await ethers.getContractFactory("RaffleWorld");
-        raffleWorld = await RaffleWorld.deploy();
+        raffleWorld = await RaffleWorld.deploy(
+            "0x2ed0feb3e7fd2022120aa84fab1945545a9f2ffc9076fd6156fa96eaff4c1311",
+            vrfCoordinatorMock.address,
+            linkToken.address,
+            "100000000000000000"
+        );
 
         const TestToken = await ethers.getContractFactory("TestToken");
         testToken = await TestToken.deploy("Test Token", "TKN1");
+
+        await linkToken.approve(raffleWorld.address, "100000000000000000");
     });
 
-
-    it("Shoud buy 3 tickets to the raffle and withdraw them", async function () {
+    it("Should buy 3 tickets to the raffle and withdraw them", async function () {
+        let redeedmTime = addMonth(100);
         await testToken.approve(raffleWorld.address, "1000000000000");
-        await raffleWorld.setRaffle("Test raffle", "1663412417", testToken.address, "1000000000000", "10", "1000", "0");
+        await raffleWorld.setRaffle("Test raffle", redeedmTime, testToken.address, "1000000000000", "10", "1000", "0");
 
-        let redeedmTime = addMonth(13);
+        redeedmTime = addMonth(13);
         await ethers.provider.send('evm_setNextBlockTimestamp', [redeedmTime]);
         await ethers.provider.send('evm_mine');
 
@@ -49,7 +64,7 @@ describe("Withdraw tickets tests", function () {
         expect(await testToken.balanceOf(deployerAccount.address)).to.equal('999999999999000000000000');
     });
 
-    it("Shoud buy 3 tickets to the raffle and withdraw 2 of them", async function () {
+    it("Should buy 3 tickets to the raffle and withdraw 2 of them", async function () {
         let redeedmTime = addMonth(1);
         await testToken.approve(raffleWorld.address, "1000000000000");
         await raffleWorld.setRaffle("Test raffle", redeedmTime, testToken.address, "1000000000000", "10", "1000", "0");
@@ -68,7 +83,7 @@ describe("Withdraw tickets tests", function () {
         expect(await testToken.balanceOf(deployerAccount.address)).to.equal('999999999998999999999000');
     });
 
-    it("Shoud not withdraw tickets because user doesn't have any", async function () {
+    it("Should not withdraw tickets because user doesn't have any", async function () {
         let redeedmTime = addMonth(1);
         await testToken.approve(raffleWorld.address, "1000000000000");
         await raffleWorld.setRaffle("Test raffle", redeedmTime, testToken.address, "1000000000000", "10", "1000", "0");
