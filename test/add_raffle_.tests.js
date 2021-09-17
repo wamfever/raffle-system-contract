@@ -45,4 +45,5 @@ describe("Add raffle tests", function () {
         await testToken.approve(raffleWorld.address, "1000000000000");
         await expect(raffleWorld.setRaffle("Test raffle", "1663346190", testToken.address, "1000000000000", "10", "1000000000", "2")).to.not.be.reverted;
     });
-})
+    
+});

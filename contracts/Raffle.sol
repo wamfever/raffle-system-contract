@@ -5,9 +5,12 @@ pragma solidity ^0.6.12;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
 import "hardhat/console.sol";
 
 contract RaffleWorld is Ownable {
+
+    using SafeMath for uint;
 
     event SetRaffle(
         address indexed user,
@@ -31,6 +34,62 @@ contract RaffleWorld is Ownable {
         address indexed user,
         uint256 indexed _raffleId
     );
+
+    event SetRaffleName(
+        address indexed user,
+        uint256 indexed _raffleId,
+        string _name
+    );
+
+    event SetRaffleStartDate(
+        address indexed user,
+        uint256 indexed _raffleId,
+        uint256 _startDate
+    );
+
+    event SetRaffleTokenAddress(
+        address indexed user,
+        uint256 indexed _raffleId,
+        address _tokenAddress
+    );
+
+    event SetRafflePrizeAmount(
+        address indexed user,
+        uint256 indexed _raffleId,
+        uint256 _prizeAmount
+    );
+
+    event SetRaffleTicketsLimit(
+        address indexed user,
+        uint256 indexed _raffleId,
+        uint256 _ticketsLimit
+    );
+
+    event SetRaffleTicketPrice(
+        address indexed user,
+        uint256 indexed _raffleId,
+        uint256 _ticketPrice
+    );
+
+    event SetRaffleLockDays(
+        address indexed user,
+        uint256 indexed _raffleId,
+        uint256 _lockDays
+    );
+
+    event SetRaffleStatus(
+        address indexed user,
+        uint256 indexed _raffleId,
+        string _status
+    );
+
+    modifier beforeRaffleStart(uint256 _raffleId) {
+        require(
+            block.timestamp < raffles[_raffleId].startDate,
+            "RaffleWorld: you cannot update raffle parameters after it has started!"
+        );
+        _;
+    }
 
     /*
         @dev Raffle structure members:
@@ -169,5 +228,51 @@ contract RaffleWorld is Ownable {
         active_raffles.pop();
 
         emit CancelRaffle(_msgSender(), _raffleId);
+    }
+
+    function setRaffleName(uint256 _raffleId, string memory _name) public onlyOwner beforeRaffleStart(_raffleId) {
+        raffles[_raffleId].name = _name;
+        emit SetRaffleName(_msgSender(), _raffleId, _name);
+    }        
+
+    function setRaffleStartDate(uint256 _raffleId, uint256 _startDate) public onlyOwner beforeRaffleStart(_raffleId) {
+        require(_startDate > block.timestamp, "RaffleWorld: raffle's start date should be in the future!");
+        raffles[_raffleId].startDate = _startDate;
+        emit SetRaffleStartDate(_msgSender(), _raffleId, _startDate);
+    }
+
+    function setRafflePrizeAmount(uint256 _raffleId, uint256 _prizeAmount) public onlyOwner beforeRaffleStart(_raffleId) {
+        require(_prizeAmount > 0, "RaffleWorld: raffle's prize amount should be greater than 0!");
+        raffles[_raffleId].prizeAmount = _prizeAmount;
+        emit SetRafflePrizeAmount(_msgSender(), _raffleId, _prizeAmount);
+    }
+
+    function setRaffleTicketsLimit(uint256 _raffleId, uint256 _ticketsLimit) public onlyOwner beforeRaffleStart(_raffleId) {
+        require(_ticketsLimit > 0, "RaffleWorld: raffle's tickets limit should be greater than 0!");
+        raffles[_raffleId].ticketsLimit = _ticketsLimit;
+        emit SetRaffleTicketsLimit(_msgSender(), _raffleId, _ticketsLimit);
+    }
+
+    function setRaffleTicketPrice(uint256 _raffleId, uint256 _ticketPrice) public onlyOwner beforeRaffleStart(_raffleId) {
+        raffles[_raffleId].ticketPrice = _ticketPrice;
+        emit SetRaffleTicketPrice(_msgSender(), _raffleId, _ticketPrice);
+    }
+
+    function setRaffleLockDays(uint256 _raffleId, uint256 _lockDays) public onlyOwner beforeRaffleStart(_raffleId) {
+        raffles[_raffleId].lockDays = _lockDays;
+        emit SetRaffleLockDays(_msgSender(), _raffleId, _lockDays);
+    }
+
+    function _setRaffleStatus(uint256 _raffleId, string memory _status) internal {
+        raffles[_raffleId].status = _status;
+        emit SetRaffleStatus(_msgSender(), _raffleId, _status);
+    } 
+
+    function getRafflesLength() public view returns(uint256) {
+        return raffles.length;
+    }
+
+    function getActiveRafflesLength() public view returns(uint256) {
+        return active_raffles.length;
     }
 }
