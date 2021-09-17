@@ -3,8 +3,39 @@
 This is an raffle mechanism project for testing purposes
 
 # Description
+This contract implements a simple raffle mechanism on the blockchain.
 
+## The public functions that users can interact with:
+```shell
+buyTickets 
+``` 
+- used to buy tokens after the raffle has started, don't forget to add allowance for the contract before purchasing
+```shell
+withdrawTickets
+``` 
+- used to refund the purchased tickets after "lockDays" days have passed from the day the tickets were bought
 
+## Public variables that users can interact with:
+```shell
+raffles
+```
+- raffles array
+```shell
+active_raffles
+```
+- active raffles array
+```shell
+percentagesToWin
+```
+- map that stores for every raffle how the prize will be divided between winners
+```shell
+raffleTickets
+```
+- map that stores for every raffle the tickets that were bought
+```shell
+userTickets
+```
+- map that stores for every user the indices of the tickets that he bought, based on raffle id
 # Testing points
 * solidity knowledge
 * hardhat development enviroment
