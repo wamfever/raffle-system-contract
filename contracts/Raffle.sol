@@ -102,6 +102,12 @@ contract RaffleWorld is Ownable {
         uint256 _ticketsNumber
     );
 
+    event WithdrawTickets(
+        address indexed user,
+        uint256 indexed _raffleId,
+        uint256 _ticketsNumber
+    );
+
     modifier beforeRaffleStart(uint256 _raffleId) {
         require(
             block.timestamp < raffles[_raffleId].startDate,
@@ -381,10 +387,45 @@ contract RaffleWorld is Ownable {
         require(ticketsValue <= raffleToken.allowance(_msgSender(), address(this)),
             "RaffleWorld: you didn't provide enough tokens for the purchase to be made");
         raffleToken.transferFrom(_msgSender(), address(this), ticketsValue);
+
         for(uint256 i = 0; i < _ticketsNumber;  i++) {
             raffleTickets[_raffleId].push(Ticket({timeWhenBought: block.timestamp, owner: _msgSender()}));
             userTickets[_msgSender()][_raffleId].push(raffleTickets[_raffleId].length - 1);
         }
+
         emit BuyTickets(_msgSender(), _raffleId, _ticketsNumber);
+    }
+
+    function withdrawTickets(uint256 _raffleId, uint256 _ticketsNumber) public {
+        require(userTickets[_msgSender()][_raffleId].length > 0, "RaffleWorld: no tickets left!");
+        require(keccak256(bytes(raffles[_raffleId].status)) != keccak256(bytes("ended")), "Raffle has eneded!");
+
+        uint256 ticketsLength = userTickets[_msgSender()][_raffleId].length - 1;
+        uint256 ticketsRefunded = 0;
+        uint256 day = 1 days;
+
+        for(uint256 i = ticketsLength; i >= 0; i--) {
+             //get the index from raffle tickets of the ticket pointed by i
+            uint256 raffle_tickets_ticket_index = userTickets[_msgSender()][_raffleId][i];
+
+            if(raffleTickets[_raffleId][raffle_tickets_ticket_index].timeWhenBought + raffles[_raffleId].lockDays.mul(day) <= block.timestamp) {
+                //replace the ticket that needs to be removed with the last ticket
+                raffleTickets[_raffleId][raffle_tickets_ticket_index] = raffleTickets[_raffleId][raffleTickets[_raffleId].length - 1];
+                raffleTickets[_raffleId].pop();
+
+                userTickets[_msgSender()][_raffleId][i] = userTickets[_msgSender()][_raffleId][userTickets[_msgSender()][_raffleId].length - 1];
+                userTickets[_msgSender()][_raffleId].pop();
+
+                ticketsRefunded = ticketsRefunded.add(1);
+            }
+            if(ticketsRefunded == _ticketsNumber) break;
+            if(i == 0) break;
+        }
+
+        uint256 ticketsValue = raffles[_raffleId].ticketPrice.mul(ticketsRefunded);
+        IERC20 raffleToken = IERC20(raffles[_raffleId].tokenAddress);
+        raffleToken.transfer(_msgSender(), ticketsValue);
+
+        emit WithdrawTickets(_msgSender(), _raffleId, ticketsRefunded);
     }
 }
