@@ -83,6 +83,19 @@ contract RaffleWorld is Ownable {
         string _status
     );
 
+    event AddPercentage(
+        address indexed user,
+        uint256 indexed _raffleId,
+        uint256 _index,
+        uint256 _percentage
+    );
+
+    event RemovePercentage(
+        address indexed user,
+        uint256 indexed _raffleId,
+        uint256 _index
+    );
+
     modifier beforeRaffleStart(uint256 _raffleId) {
         require(
             block.timestamp < raffles[_raffleId].startDate,
@@ -136,6 +149,9 @@ contract RaffleWorld is Ownable {
 
     /* mapping from main raffles array index to active raffle index */
     mapping(uint256 => uint256) active_raffles_index;
+
+    /* mapping from main raffles array index to an array of percentages wich represents how the prize amount is divided among winners */
+    mapping(uint256 => uint256[]) percentagesToWin;
 
     function _checkRaffleParameters(uint256 _startDate, uint256 _prizeAmount, uint256 _ticketsLimit) internal view {
         require(_startDate > block.timestamp, "RaffleWorld: raffle's start date should be in the future!");
@@ -274,5 +290,46 @@ contract RaffleWorld is Ownable {
 
     function getActiveRafflesLength() public view returns(uint256) {
         return active_raffles.length;
+    }
+
+    function addPercentage(uint256 _raffleId, uint256 _index, uint256 _percentage) public onlyOwner beforeRaffleStart(_raffleId) {
+
+        // if the specified index represents an occupied position in the array then we only need to change the percentage pointed by the index
+        if(_index < percentagesToWin[_raffleId].length) {
+            
+            //we substract the percentage from the current position because its value will be changed below
+            raffles[_raffleId].totalPercentage = raffles[_raffleId].totalPercentage.sub(percentagesToWin[_raffleId][_index]);
+
+            //add the current percentage
+            raffles[_raffleId].totalPercentage = raffles[_raffleId].totalPercentage.add(_percentage);
+
+            // 2 0's are for the decimal aproximation
+            require( raffles[_raffleId].totalPercentage <= 10000, "RaffleWorld: Total percentage should be less or equal with 100");
+
+            percentagesToWin[_raffleId][_index] = _percentage;
+            
+        } else{
+            //if the index does not represents an occupied position, we just push it into the array
+            raffles[_raffleId].totalPercentage = raffles[_raffleId].totalPercentage.add(_percentage);
+            // 2 0's are for the decimal aproximation
+            require( raffles[_raffleId].totalPercentage <= 10000, "RaffleWorld: Total percentage should be less or equal with 100");
+            percentagesToWin[_raffleId].push(_percentage);
+        }
+
+        emit AddPercentage(_msgSender(), _raffleId, _index, _percentage);
+    }
+
+    function removePercentage(uint256 _raffleId, uint256 _index) public onlyOwner beforeRaffleStart(_raffleId) {
+        require(_index < percentagesToWin[_raffleId].length, "RaffleWorld: the index does not represent an occupied poistion in the array");
+        
+        raffles[_raffleId].totalPercentage = raffles[_raffleId].totalPercentage.sub(percentagesToWin[_raffleId][_index]);
+
+        //replacing the percentage from the current index with the last percentage from the array 
+        percentagesToWin[_raffleId][_index] = percentagesToWin[_raffleId][percentagesToWin[_raffleId].length - 1];
+        
+        //remove the last percentage
+        percentagesToWin[_raffleId].pop();
+
+        emit RemovePercentage(_msgSender(), _raffleId, _index);
     }
 }
