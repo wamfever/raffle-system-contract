@@ -96,10 +96,38 @@ contract RaffleWorld is Ownable {
         uint256 _index
     );
 
+    event BuyTickets(
+        address indexed user,
+        uint256 indexed _raffleId,
+        uint256 _ticketsNumber
+    );
+
     modifier beforeRaffleStart(uint256 _raffleId) {
         require(
             block.timestamp < raffles[_raffleId].startDate,
             "RaffleWorld: you cannot update raffle parameters after it has started!"
+        );
+        _;
+    }
+
+    modifier checkTicketsAcquisition(uint256 _raffleId, uint256 _ticketsNumber) {
+        require(
+            raffles[_raffleId].canceled == false,
+            "RaffleWolrd: this raffle is canceled!"
+        );
+        require(
+            keccak256(bytes(raffles[_raffleId].status)) !=
+                keccak256(bytes("ended")),
+            "RaffleWorld: this raffle has ended!"
+        );
+        require(
+            raffleTickets[_raffleId].length.add(_ticketsNumber) <=
+                raffles[_raffleId].ticketsLimit,
+            "RaffleWorld: you need to buy less tickets"
+        );
+        require(
+            raffles[_raffleId].startDate < block.timestamp,
+            "RaffleWorld: the raffle has not started yet"
         );
         _;
     }
@@ -141,6 +169,11 @@ contract RaffleWorld is Ownable {
         uint256 totalPercentage;
     }
 
+    struct Ticket {
+        uint256 timeWhenBought;
+        address owner;
+    }
+
     /* main raffles array */
     Raffle[] public raffles;
 
@@ -152,6 +185,12 @@ contract RaffleWorld is Ownable {
 
     /* mapping from main raffles array index to an array of percentages wich represents how the prize amount is divided among winners */
     mapping(uint256 => uint256[]) percentagesToWin;
+
+    /* mapping from raffle id to tickets bought for it */
+    mapping(uint256 => Ticket[]) raffleTickets;
+
+    /* mapping from user address to tickets bought by him for a specific raffle id*/
+    mapping(address => mapping(uint256 => uint256[])) userTickets;
 
     function _checkRaffleParameters(uint256 _startDate, uint256 _prizeAmount, uint256 _ticketsLimit) internal view {
         require(_startDate > block.timestamp, "RaffleWorld: raffle's start date should be in the future!");
@@ -331,5 +370,21 @@ contract RaffleWorld is Ownable {
         percentagesToWin[_raffleId].pop();
 
         emit RemovePercentage(_msgSender(), _raffleId, _index);
+    }
+
+
+    function buyTickets(uint256 _raffleId, uint256 _ticketsNumber) public checkTicketsAcquisition(_raffleId, _ticketsNumber) {
+        
+        //checks if the user has enough balance
+        uint256 ticketsValue = raffles[_raffleId].ticketPrice.mul(_ticketsNumber);
+        IERC20 raffleToken = IERC20(raffles[_raffleId].tokenAddress);
+        require(ticketsValue <= raffleToken.allowance(_msgSender(), address(this)),
+            "RaffleWorld: you didn't provide enough tokens for the purchase to be made");
+        raffleToken.transferFrom(_msgSender(), address(this), ticketsValue);
+        for(uint256 i = 0; i < _ticketsNumber;  i++) {
+            raffleTickets[_raffleId].push(Ticket({timeWhenBought: block.timestamp, owner: _msgSender()}));
+            userTickets[_msgSender()][_raffleId].push(raffleTickets[_raffleId].length - 1);
+        }
+        emit BuyTickets(_msgSender(), _raffleId, _ticketsNumber);
     }
 }

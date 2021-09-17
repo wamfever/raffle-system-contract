@@ -24,7 +24,8 @@ describe("Winning percentages tests", function () {
 
     it("Shoud add a percentage to one of the raffles", async function () {
         await testToken.approve(raffleWorld.address, "1000000000000");
-        await expect(raffleWorld.setRaffle("Test raffle", "1663346190", testToken.address, "1000000000000", "10", "1000000000", "2")).to.not.be.reverted;
+        await expect(raffleWorld.setRaffle("Test raffle", "1663346190", testToken.address, "1000000000000", "10", "1000000000", "2"))
+            .to.not.be.reverted;
         await expect(raffleWorld.addPercentage("0", "0", "2000"))
             .to.emit(raffleWorld, "AddPercentage").withArgs(deployerAccount.address, "0", "0", "2000");
     });
