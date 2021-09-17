@@ -123,6 +123,12 @@ contract RaffleWorld is Ownable, VRFConsumerBase {
         uint256 _amount
     );
 
+    event WithdrawOwnerFunds(
+        address indexed user,
+        uint256 indexed _raffleId,
+        uint256 _amount
+    );
+
     modifier beforeRaffleStart(uint256 _raffleId) {
         require(
             block.timestamp < raffles[_raffleId].startDate,
@@ -548,5 +554,23 @@ contract RaffleWorld is Ownable, VRFConsumerBase {
         emit WithdrawTickets(_msgSender(), _raffleId, ticketsRefunded);
     }
 
-    
+    function withdrawOwnerFunds(uint256 _raffleId)
+        external
+        onlyOwner
+    {
+        IERC20 raffleToken = IERC20(raffles[_raffleId].tokenAddress);
+        uint256 ownerFunds = raffles[_raffleId].ticketPrice.mul(raffles[_raffleId].ticketsLimit).sub(raffles[_raffleId].prizeAmount);
+        require(
+            keccak256(bytes(raffles[_raffleId].status)) ==
+                        keccak256(bytes("ended")),
+            "RaffleWorld: raffle is not ended yet!"
+        );
+        require(
+            raffleToken.balanceOf(address(this)) >= ownerFunds,
+            "RaffleWorld: insufficient balance!"
+        );
+        raffleToken.transfer(_msgSender(), ownerFunds);
+        emit WithdrawOwnerFunds(_msgSender(), _raffleId, ownerFunds);
+    }
+
 }
