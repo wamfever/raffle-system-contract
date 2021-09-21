@@ -5,6 +5,13 @@ This is an raffle mechanism project for testing purposes
 # Description
 This contract implements a simple raffle mechanism on the blockchain.
 
+## Chainlink integration
+The mechanism by which the winners of the raffle are determined uses a random number obtained by calling a function from Chainlink VRF.
+
+Chainlink VRF enables smart contracts to access randomness without compromising on security or usability. With every new request for randomness, Chainlink VRF generates a random number and cryptographic proof of how that number was determined. The proof is published and verified on-chain before it can be used by any consuming applications. This process ensures that the results cannot be tampered with nor manipulated by anyone, including oracle operators, miners, users and even smart contract developers.
+
+Once the Chainlink VRF request is fulfileed, we use the obtained random number to generate random numbers equal to the number of tickets that must to win; These numbers will represent the index of the winning tickets.
+
 ## The public functions that users can interact with:
 ```shell
 buyTickets 
