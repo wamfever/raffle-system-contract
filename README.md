@@ -12,6 +12,22 @@ Chainlink VRF enables smart contracts to access randomness without compromising 
 
 Once the Chainlink VRF request is fulfileed, we use the obtained random number to generate random numbers equal to the number of tickets that must to win; These numbers will represent the index of the winning tickets.
 
+
+## Improvements
+To generate random numbers based on the random obtained from Chainlink we:
+* Compute the Keccak-256 hash of the current prize number and the random obtained from ChainLink
+* Parse the hash to uint256
+* We apply modulo(number_of_winning_tickets) to the obtained number
+
+```shell
+  uint256 index = uint256(keccak256(abi.encode(random, i))).mod(raffleTickets[_raffleId].length);
+```
+### The problem:
+Because we need to apply modulo to the hash parsed as uint to bring it in the range 0 - number of tickets, there are some tickets that have higher chance of winning
+
+### Possible solution:
+Chainlink VRF calls for each index
+
 ## The public functions that users can interact with:
 ```shell
 buyTickets 
