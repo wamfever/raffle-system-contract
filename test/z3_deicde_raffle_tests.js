@@ -47,16 +47,16 @@ describe("Decide raffle tests", function () {
 
 
     it("Shoud decide the raffle and give the prize to the winner", async function () {
-        let redeedmTime = addMonth(200);
+        let redeemTime = addMonth(200);
         await testToken.approve(raffleWorld.address, "100000000000000000");
         await testToken.transfer(secondaryAccount.address, "1000000000000");
-        await raffleWorld.setRaffle("Test raffle", redeedmTime, testToken.address, "100000000000000000", "5", "1000", "2");
+        await raffleWorld.setRaffle("Test raffle", redeemTime, testToken.address, "100000000000000000", "5", "1000", "2");
 
         await expect(raffleWorld.addPercentage("0", "0", "10000"))
             .to.emit(raffleWorld, "AddPercentage").withArgs(deployerAccount.address, "0", "0", "10000");
 
-        redeedmTime = addMonth(13);
-        await ethers.provider.send('evm_setNextBlockTimestamp', [redeedmTime]);
+        redeemTime = addMonth(13);
+        await ethers.provider.send('evm_setNextBlockTimestamp', [redeemTime]);
         await ethers.provider.send('evm_mine');
 
         await testToken.approve(raffleWorld.address, "3000");

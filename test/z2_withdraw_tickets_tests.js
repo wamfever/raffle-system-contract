@@ -46,12 +46,12 @@ describe("Withdraw tickets tests", function () {
     });
 
     it("Should buy 3 tickets to the raffle and withdraw them", async function () {
-        let redeedmTime = addMonth(100);
+        let redeemTime = addMonth(100);
         await testToken.approve(raffleWorld.address, "1000000000000");
-        await raffleWorld.setRaffle("Test raffle", redeedmTime, testToken.address, "1000000000000", "10", "1000", "0");
+        await raffleWorld.setRaffle("Test raffle", redeemTime, testToken.address, "1000000000000", "10", "1000", "0");
 
-        redeedmTime = addMonth(13);
-        await ethers.provider.send('evm_setNextBlockTimestamp', [redeedmTime]);
+        redeemTime = addMonth(13);
+        await ethers.provider.send('evm_setNextBlockTimestamp', [redeemTime]);
         await ethers.provider.send('evm_mine');
 
         await testToken.approve(raffleWorld.address, "3000");
@@ -65,12 +65,12 @@ describe("Withdraw tickets tests", function () {
     });
 
     it("Should buy 3 tickets to the raffle and withdraw 2 of them", async function () {
-        let redeedmTime = addMonth(1);
+        let redeemTime = addMonth(1);
         await testToken.approve(raffleWorld.address, "1000000000000");
-        await raffleWorld.setRaffle("Test raffle", redeedmTime, testToken.address, "1000000000000", "10", "1000", "0");
+        await raffleWorld.setRaffle("Test raffle", redeemTime, testToken.address, "1000000000000", "10", "1000", "0");
 
-        redeedmTime = addMonth(13);
-        await ethers.provider.send('evm_setNextBlockTimestamp', [redeedmTime]);
+        redeemTime = addMonth(13);
+        await ethers.provider.send('evm_setNextBlockTimestamp', [redeemTime]);
         await ethers.provider.send('evm_mine');
 
         await testToken.approve(raffleWorld.address, "3000");
@@ -84,12 +84,12 @@ describe("Withdraw tickets tests", function () {
     });
 
     it("Should not withdraw tickets because user doesn't have any", async function () {
-        let redeedmTime = addMonth(1);
+        let redeemTime = addMonth(1);
         await testToken.approve(raffleWorld.address, "1000000000000");
-        await raffleWorld.setRaffle("Test raffle", redeedmTime, testToken.address, "1000000000000", "10", "1000", "0");
+        await raffleWorld.setRaffle("Test raffle", redeemTime, testToken.address, "1000000000000", "10", "1000", "0");
 
-        redeedmTime = addMonth(13);
-        await ethers.provider.send('evm_setNextBlockTimestamp', [redeedmTime]);
+        redeemTime = addMonth(13);
+        await ethers.provider.send('evm_setNextBlockTimestamp', [redeemTime]);
         await ethers.provider.send('evm_mine');
 
         await expect(raffleWorld.withdrawTickets("0", "2"))
@@ -99,20 +99,20 @@ describe("Withdraw tickets tests", function () {
     });
 
     it("Should withdraw only avalible tickets", async function() {
-        let redeedmTime = addMonth(1);
+        let redeemTime = addMonth(1);
         await testToken.approve(raffleWorld.address, "1000000000000");
-        await raffleWorld.setRaffle("Test raffle", redeedmTime, testToken.address, "1000000000000", "10", "1000", "30");
+        await raffleWorld.setRaffle("Test raffle", redeemTime, testToken.address, "1000000000000", "10", "1000", "30");
 
-        redeedmTime = addMonth(13);
-        await ethers.provider.send('evm_setNextBlockTimestamp', [redeedmTime]);
+        redeemTime = addMonth(13);
+        await ethers.provider.send('evm_setNextBlockTimestamp', [redeemTime]);
         await ethers.provider.send('evm_mine');
 
         await testToken.approve(raffleWorld.address, "3000");
         await expect(raffleWorld.buyTickets("0", "2"))
             .to.emit(raffleWorld, "BuyTickets").withArgs(deployerAccount.address, "0", "2");
 
-        redeedmTime = addMonth(2);
-        await ethers.provider.send('evm_setNextBlockTimestamp', [redeedmTime]);
+        redeemTime = addMonth(2);
+        await ethers.provider.send('evm_setNextBlockTimestamp', [redeemTime]);
         await ethers.provider.send('evm_mine');
 
         await expect(raffleWorld.buyTickets("0", "1"))
